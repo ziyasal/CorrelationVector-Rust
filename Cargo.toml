@@ -1,0 +1,10 @@
+[package]
+name = "correlation_vector"
+version = "0.1.0"
+authors = ["Ziλa Sarikaya <zisarika@microsoft.com>"]
+edition = "2018"
+
+[dependencies]
+num = "0.2"
+num-traits = "0.2"
+num-derive = "0.2"
