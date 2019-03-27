@@ -12,7 +12,7 @@ use spin_parameters::SpinParameters;
 use std::io::Bytes;
 
 mod statics {
-    /// byte 0 to 255	Unsigned 8-bit integer
+    /// byte: 0 to 255	Unsigned 8-bit integer
     pub(crate) static MaxVectorLength: u8 = 63;
     pub(crate) static MaxVectorLengthV2: u8 = 127;
     pub(crate) static BaseLength: u8 = 16;
