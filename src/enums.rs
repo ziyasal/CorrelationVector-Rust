@@ -1,5 +1,5 @@
 /// Version
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CorrelationVectorVersion {
     V1,
     V2,
