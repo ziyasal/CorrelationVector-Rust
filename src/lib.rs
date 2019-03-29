@@ -22,9 +22,7 @@ pub struct CorrelationVector {
     base_vector: String,
     extension: i32,
     immutable: bool,
-    rng: Box<ThreadRng>,
     version: CorrelationVectorVersion,
-    validate_correlation_vector_during_creation: bool,
 }
 
 impl CorrelationVector {
@@ -48,8 +46,6 @@ impl CorrelationVector {
             extension,
             version,
             immutable,
-            rng: Box::new(rand::thread_rng()),
-            validate_correlation_vector_during_creation: false,
         }
     }
 
@@ -124,8 +120,6 @@ impl CorrelationVector {
                         extension: i32::from_str(extension).unwrap_or(0),
                         version,
                         immutable,
-                        rng: Box::new(rand::thread_rng()),
-                        validate_correlation_vector_during_creation: false,
                     };
                 }
                 None => panic!("Invalid CV")
@@ -232,6 +226,7 @@ impl CorrelationVector {
         let entropy: Vec<u8> = (0..parameters.entropy_bytes()).map(|_| { rand::random::<u8>() }).collect();
 
         let utc: DateTime<Utc> = Utc::now();
+
         // u64 is ulong here `type c_ulong = u64` in code.
         let mut value: u64 = (utc.timestamp_millis() >> parameters.ticks_bits_to_drop()) as u64;
 
@@ -265,9 +260,7 @@ impl<'a> Default for CorrelationVector {
             base_vector: String::from(""),
             extension: 0,
             immutable: false,
-            rng: Box::new(rand::thread_rng()),
             version: CorrelationVectorVersion::V1,
-            validate_correlation_vector_during_creation: false,
         }
     }
 }
