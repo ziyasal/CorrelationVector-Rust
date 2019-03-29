@@ -1,5 +1,6 @@
 extern crate num;
 extern crate rand;
+extern crate chrono;
 
 #[macro_use]
 extern crate num_derive;
@@ -11,11 +12,9 @@ pub mod spin_parameters;
 use enums::SpinEntropy;
 use spin_parameters::SpinParameters;
 use rand::prelude::*;
-use crate::enums::CorrelationVectorVersion;
+use crate::enums::{CorrelationVectorVersion, SpinCounterInterval, SpinCounterPeriodicity};
 use std::str::FromStr;
-
-/// Gets or sets a value indicating whether or not to validate the correlation vector on creation.
-static mut VALIDATE_CORRELATION_VECTOR_DURING_CREATION: bool = false;
+use chrono::prelude::*;
 
 /// This class represents a lightweight vector for identifying and measuring causality.
 #[derive(Debug)]
@@ -25,14 +24,17 @@ pub struct CorrelationVector {
     immutable: bool,
     rng: Box<ThreadRng>,
     version: CorrelationVectorVersion,
+    validate_correlation_vector_during_creation: bool,
 }
 
 impl CorrelationVector {
     /// byte: 0 to 255	Unsigned 8-bit integer
-    const MAX_VECTOR_LENGTH: u8 = 63;
-    const MAX_VECTOR_LENGTH_V2: u8 = 127;
+
     const BASE_LENGTH: u8 = 16;
+    const MAX_VECTOR_LENGTH: u8 = 63;
+
     const BASE_LENGTH_V2: u8 = 22;
+    const MAX_VECTOR_LENGTH_V2: u8 = 127;
 
     /// This is termination sign should be used when vector length exceeds max allowed length
     const TERMINATION_SIGN: &'static str = "!";
@@ -40,25 +42,14 @@ impl CorrelationVector {
     /// This is the header that should be used between services to pass the correlation vector.
     const HEADER_NAME: &'static str = "MS-CV";
 
-    pub fn create(&mut self) -> i32 {
-        let mut sp = SpinParameters::default();
-
-        sp.set_entropy(Box::new(SpinEntropy::Four));
-
-        println!("{}", *sp.entropy() as i32);
-        println!("{}", *sp.entropy() as i32);
-
-        println!("Rand: {}", self.rng.gen::<u32>());
-        return 23;
-    }
-
-    pub fn new(base_vector: &str, extension: i32, version: CorrelationVectorVersion, immutable: bool) -> CorrelationVector {
+    pub fn new(base_vector: String, extension: i32, version: CorrelationVectorVersion, immutable: bool) -> CorrelationVector {
         CorrelationVector {
-            base_vector: String::from_str(base_vector).unwrap(),
+            base_vector,
             extension,
             version,
             immutable,
             rng: Box::new(rand::thread_rng()),
+            validate_correlation_vector_during_creation: false,
         }
     }
 
@@ -74,34 +65,39 @@ impl CorrelationVector {
             append = CorrelationVector::TERMINATION_SIGN;
         }
 
-        let x: String = format!("{}.{}{}", self.base_vector, self.extension, append);
-        Box::new(x)
+        let value_str: String = format!("{}.{}{}", self.base_vector, self.extension, append);
+        Box::new(value_str)
     }
 
+    /// Creates a new correlation vector by extending an existing value. This should be
+    /// done at the entry point of an operation.
+    ///  # Arguments
+    ///
+    /// * `correlation_vector` - Taken from the message header indicated MS-CV
+    /// * `validate_correlation_vector_during_creation` - Gets or sets a value indicating whether or not to validate the correlation vector on creation.
+    /// # Returns
+    ///  A new correlation vector extended from the current vector.
+    ///
     #[inline]
     pub fn extend(correlation_vector: &str, validate_correlation_vector_during_creation: bool) -> CorrelationVector {
-        if CorrelationVector::is_immutable(correlation_vector)
-        {
-            return CorrelationVector::parse(correlation_vector);
+        if CorrelationVector::is_immutable(correlation_vector) {
+            return CorrelationVector::parse(correlation_vector, true);
         }
 
-        let version: enums::CorrelationVectorVersion;
+        let version: CorrelationVectorVersion;
 
         version = CorrelationVector::infer_version(correlation_vector, validate_correlation_vector_during_creation);
 
-        if validate_correlation_vector_during_creation
-        {
+        if validate_correlation_vector_during_creation {
             CorrelationVector::validate(correlation_vector, version);
         }
 
-        if CorrelationVector::is_oversized(correlation_vector, 0, version)
-        {
-            // TODO: Termination sign
-            let vector = format!("{}{}", correlation_vector, "!");
-            return CorrelationVector::parse(vector.as_str());
+        if CorrelationVector::is_oversized(correlation_vector, 0, version) {
+            // let immutable_vector = format!("{}{}", correlation_vector, CorrelationVector::TERMINATION_SIGN);
+            return CorrelationVector::parse(correlation_vector, true);
         }
 
-        CorrelationVector::new(correlation_vector, 0, version, false)
+        return CorrelationVector::new(String::from(correlation_vector), 0, version, false);
     }
 
     #[inline]
@@ -110,27 +106,26 @@ impl CorrelationVector {
     }
 
     #[inline]
-    pub fn parse(correlation_vector: &str) -> CorrelationVector {
+    pub fn parse(correlation_vector: &str, immutable: bool) -> CorrelationVector {
         if !correlation_vector.is_empty() {
-
             match correlation_vector.rfind('.') {
                 Some(last_index) => {
                     let base_vector = &correlation_vector[0..last_index];
-                    let mut extension = &correlation_vector[last_index+1..correlation_vector.len()];
+                    let mut extension = &correlation_vector[last_index + 1..correlation_vector.len()];
 
-                    let immutable = CorrelationVector::is_immutable(correlation_vector);
                     let version = CorrelationVector::infer_version(correlation_vector, false);
 
                     if immutable {
-                        extension = &extension[0..extension.len()-1]
+                        extension = &extension[0..extension.len() - 1]
                     }
 
                     return CorrelationVector {
                         base_vector: String::from_str(base_vector).unwrap(),
-                        extension: i32::from_str(extension).unwrap_or(9),
+                        extension: i32::from_str(extension).unwrap_or(0),
                         version,
                         immutable,
                         rng: Box::new(rand::thread_rng()),
+                        validate_correlation_vector_during_creation: false,
                     };
                 }
                 None => panic!("Invalid CV")
@@ -208,9 +203,63 @@ impl CorrelationVector {
 
         true
     }
+
+    #[inline]
+    pub fn spin(correlation_vector: &str, validate_correlation_vector_during_creation: bool) -> CorrelationVector {
+        let default_parameters = SpinParameters::new(SpinCounterInterval::Coarse, SpinCounterPeriodicity::Short, SpinEntropy::Two);
+
+        return CorrelationVector::spin_with_params(
+            correlation_vector,
+            default_parameters,
+            validate_correlation_vector_during_creation,
+        );
+    }
+
+    #[inline]
+    pub fn spin_with_params(correlation_vector: &str, parameters: SpinParameters, validate_correlation_vector_during_creation: bool) -> CorrelationVector {
+        if CorrelationVector::is_immutable(correlation_vector) {
+            return CorrelationVector::parse(correlation_vector, true);
+        }
+
+        let version = CorrelationVector::infer_version(correlation_vector, validate_correlation_vector_during_creation);
+
+        if validate_correlation_vector_during_creation {
+            CorrelationVector::validate(correlation_vector, version);
+        }
+
+        println!("{:?}", parameters);
+
+        let entropy: Vec<u8> = (0..parameters.entropy_bytes()).map(|_| { rand::random::<u8>() }).collect();
+
+        let utc: DateTime<Utc> = Utc::now();
+        // u64 is ulong here `type c_ulong = u64` in code.
+        let mut value: u64 = (utc.timestamp_millis() >> parameters.ticks_bits_to_drop()) as u64;
+
+        for i in 0..parameters.entropy_bytes() {
+            value = (value << 8) | entropy[i as usize] as u64;
+        }
+
+        // Generate a bitmask and mask the lower total_bits in the value.
+        // The mask is generated by (1 << total_bits) - 1. We need to handle the edge case when shifting 64 bits, as it wraps around.
+        value &= if parameters.total_bits() == 64 { 0 } else { (1 as u64) << parameters.total_bits() - 1 };
+
+        let mut s = value.to_string();
+
+        if parameters.total_bits() > 32 {
+            s = format!("{}.{}", (value >> 32), s);
+        }
+
+        let base_vector = format!("{}.{}", correlation_vector, s);
+
+        if CorrelationVector::is_oversized(&base_vector, 0, version) {
+            return CorrelationVector::parse(correlation_vector, true);
+        }
+
+        return CorrelationVector::new(base_vector, 0, version, false);
+    }
 }
 
-impl Default for CorrelationVector {
+impl<'a> Default for CorrelationVector {
     fn default() -> CorrelationVector {
         CorrelationVector {
             base_vector: String::from(""),
@@ -218,6 +267,7 @@ impl Default for CorrelationVector {
             immutable: false,
             rng: Box::new(rand::thread_rng()),
             version: CorrelationVectorVersion::V1,
+            validate_correlation_vector_during_creation: false,
         }
     }
 }

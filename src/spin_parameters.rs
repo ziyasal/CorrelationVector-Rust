@@ -21,6 +21,16 @@ pub struct SpinParameters {
 }
 
 impl SpinParameters {
+    pub fn new(interval: SpinCounterInterval,
+               periodicity: SpinCounterPeriodicity,
+               entropy: SpinEntropy) -> SpinParameters {
+        SpinParameters {
+            interval,
+            periodicity,
+            entropy_bytes: entropy as i32,
+        }
+    }
+
     /// The number of bytes to use for entropy. Valid values from a
     /// minimum of 0 to a maximum of 4.
     pub fn entropy(&self) -> Box<SpinEntropy> {
