@@ -11,7 +11,6 @@ pub mod spin_parameters;
 
 use enums::SpinEntropy;
 use spin_parameters::SpinParameters;
-use rand::prelude::*;
 use crate::enums::{CorrelationVectorVersion, SpinCounterInterval, SpinCounterPeriodicity};
 use std::str::FromStr;
 use chrono::prelude::*;
