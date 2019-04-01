@@ -15,7 +15,7 @@ use crate::enums::{CorrelationVectorVersion, SpinCounterInterval, SpinCounterPer
 use std::str::FromStr;
 use chrono::prelude::*;
 
-/// This class represents a lightweight vector for identifying and measuring causality.
+/// This struct represents a lightweight vector for identifying and measuring causality.
 #[derive(Debug)]
 pub struct CorrelationVector {
     base_vector: String,
