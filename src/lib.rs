@@ -76,7 +76,7 @@ impl CorrelationVector {
     #[inline]
     pub fn extend(correlation_vector: &str, validate_correlation_vector_during_creation: bool) -> CorrelationVector {
         if CorrelationVector::is_immutable(correlation_vector) {
-            return CorrelationVector::parse(correlation_vector, true);
+            return CorrelationVector::parse(correlation_vector);
         }
 
         let version: CorrelationVectorVersion;
@@ -88,8 +88,9 @@ impl CorrelationVector {
         }
 
         if CorrelationVector::is_oversized(correlation_vector, 0, version) {
-            // let immutable_vector = format!("{}{}", correlation_vector, CorrelationVector::TERMINATION_SIGN);
-            return CorrelationVector::parse(correlation_vector, true);
+            let immutable_vector = format!("{}{}", correlation_vector, CorrelationVector::TERMINATION_SIGN);
+
+            return CorrelationVector::parse(&immutable_vector);
         }
 
         return CorrelationVector::new(String::from(correlation_vector), 0, version, false);
@@ -101,13 +102,13 @@ impl CorrelationVector {
     }
 
     #[inline]
-    pub fn parse(correlation_vector: &str, immutable: bool) -> CorrelationVector {
+    pub fn parse(correlation_vector: &str) -> CorrelationVector {
         if !correlation_vector.is_empty() {
             match correlation_vector.rfind('.') {
                 Some(last_index) => {
                     let base_vector = &correlation_vector[0..last_index];
                     let mut extension = &correlation_vector[last_index + 1..correlation_vector.len()];
-
+                    let immutable = CorrelationVector::is_immutable(correlation_vector);
                     let version = CorrelationVector::infer_version(correlation_vector, false);
 
                     if immutable {
@@ -211,7 +212,7 @@ impl CorrelationVector {
     #[inline]
     pub fn spin_with_params(correlation_vector: &str, parameters: SpinParameters, validate_correlation_vector_during_creation: bool) -> CorrelationVector {
         if CorrelationVector::is_immutable(correlation_vector) {
-            return CorrelationVector::parse(correlation_vector, true);
+            return CorrelationVector::parse(correlation_vector);
         }
 
         let version = CorrelationVector::infer_version(correlation_vector, validate_correlation_vector_during_creation);
@@ -246,7 +247,8 @@ impl CorrelationVector {
         let base_vector = format!("{}.{}", correlation_vector, s);
 
         if CorrelationVector::is_oversized(&base_vector, 0, version) {
-            return CorrelationVector::parse(correlation_vector, true);
+            let immutable_vector = format!("{}{}", correlation_vector, CorrelationVector::TERMINATION_SIGN);
+            return CorrelationVector::parse(&immutable_vector);
         }
 
         return CorrelationVector::new(base_vector, 0, version, false);
