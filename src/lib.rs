@@ -14,6 +14,7 @@ use spin_parameters::SpinParameters;
 use crate::enums::{CorrelationVectorVersion, SpinCounterInterval, SpinCounterPeriodicity};
 use std::str::FromStr;
 use chrono::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// This struct represents a lightweight vector for identifying and measuring causality.
 #[derive(Debug)]
@@ -62,6 +63,9 @@ impl CorrelationVector {
 
         let value_str: String = format!("{}.{}{}", self.base_vector, self.extension, append);
         Box::new(value_str)
+    }
+    pub fn set_immutable(&mut self) {
+        self.immutable = true;
     }
 
     /// Creates a new correlation vector by extending an existing value. This should be
@@ -252,6 +256,40 @@ impl CorrelationVector {
         }
 
         return CorrelationVector::new(base_vector, 0, version, false);
+    }
+
+    #[inline]
+    pub fn increment(&mut self) -> String {
+        if self.immutable {
+            return *self.value();
+        }
+
+        let mut snapshot: usize = 0;
+        let mut next: usize = 0;
+
+        let atomic_ext = AtomicUsize::new(self.extension);
+        while {
+            //work
+            snapshot = self.extension;
+
+            //todo: int max
+            if snapshot == usize::max_value() {
+                return *self.value();
+            }
+
+            next = snapshot + 1;
+            if CorrelationVector::is_oversized(&self.base_vector, next as u32, self.version)
+            {
+                self.set_immutable();
+                return *self.value();
+            }
+            //end work
+
+            // condition
+            snapshot != atomic_ext.compare_exchange(snapshot, next, Ordering::Acquire, Ordering::Relaxed).unwrap()
+        } {}
+
+        return String::from("");
     }
 }
 
