@@ -268,6 +268,8 @@ impl CorrelationVector {
         let mut next: usize = 0;
 
         let atomic_ext = AtomicUsize::new(self.extension);
+        println!("ENTER: {}", atomic_ext.load(Ordering::Relaxed));
+
         while {
             //work
             snapshot = self.extension;
@@ -286,10 +288,13 @@ impl CorrelationVector {
             //end work
 
             // condition
-            snapshot != atomic_ext.compare_exchange(snapshot, next, Ordering::Acquire, Ordering::Relaxed).unwrap()
+            let result = atomic_ext.compare_exchange(snapshot, next, Ordering::Acquire, Ordering::Relaxed);
+            self.extension = atomic_ext.load(Ordering::Relaxed);
+            
+            snapshot != result.unwrap()
         } {}
 
-        return String::from("");
+        return String::from(format!("{}.{}", self.base_vector, next));
     }
 }
 
