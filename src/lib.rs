@@ -19,7 +19,7 @@ use chrono::prelude::*;
 #[derive(Debug)]
 pub struct CorrelationVector {
     base_vector: String,
-    extension: i32,
+    extension: usize,
     immutable: bool,
     version: CorrelationVectorVersion,
 }
@@ -39,7 +39,7 @@ impl CorrelationVector {
     /// This is the header that should be used between services to pass the correlation vector.
     const HEADER_NAME: &'static str = "MS-CV";
 
-    pub fn new(base_vector: String, extension: i32, version: CorrelationVectorVersion, immutable: bool) -> CorrelationVector {
+    pub fn new(base_vector: String, extension: usize, version: CorrelationVectorVersion, immutable: bool) -> CorrelationVector {
         CorrelationVector {
             base_vector,
             extension,
@@ -117,7 +117,7 @@ impl CorrelationVector {
 
                     return CorrelationVector {
                         base_vector: String::from_str(base_vector).unwrap(),
-                        extension: i32::from_str(extension).unwrap_or(0),
+                        extension: usize::from_str(extension).unwrap_or(0),
                         version,
                         immutable,
                     };
