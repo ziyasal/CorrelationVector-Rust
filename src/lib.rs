@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[derive(Debug)]
 pub struct CorrelationVector {
     base_vector: String,
-    extension: usize,
+    extension: AtomicUsize,
     immutable: bool,
     version: CorrelationVectorVersion,
 }
@@ -43,7 +43,7 @@ impl CorrelationVector {
     pub fn new(base_vector: String, extension: usize, version: CorrelationVectorVersion, immutable: bool) -> CorrelationVector {
         CorrelationVector {
             base_vector,
-            extension,
+            extension: AtomicUsize::new(extension),
             version,
             immutable,
         }
@@ -61,7 +61,7 @@ impl CorrelationVector {
             append = CorrelationVector::TERMINATION_SIGN;
         }
 
-        let value_str: String = format!("{}.{}{}", self.base_vector, self.extension, append);
+        let value_str: String = format!("{}.{}{}", self.base_vector, self.extension.load(Ordering::Relaxed), append);
         Box::new(value_str)
     }
     pub fn set_immutable(&mut self) {
@@ -121,7 +121,7 @@ impl CorrelationVector {
 
                     return CorrelationVector {
                         base_vector: String::from_str(base_vector).unwrap(),
-                        extension: usize::from_str(extension).unwrap_or(0),
+                        extension: AtomicUsize::new(usize::from_str(extension).unwrap_or(0)),
                         version,
                         immutable,
                     };
@@ -267,12 +267,11 @@ impl CorrelationVector {
         let mut snapshot: usize = 0;
         let mut next: usize = 0;
 
-        let atomic_ext = AtomicUsize::new(self.extension);
-        println!("ENTER: {}", atomic_ext.load(Ordering::Relaxed));
+        println!("ENTER: {}", self.extension.load(Ordering::Relaxed));
 
         while {
             //work
-            snapshot = self.extension;
+            snapshot = self.extension.load(Ordering::Relaxed);
 
             //todo: int max
             if snapshot == usize::max_value() {
@@ -288,9 +287,8 @@ impl CorrelationVector {
             //end work
 
             // condition
-            let result = atomic_ext.compare_exchange(snapshot, next, Ordering::Acquire, Ordering::Relaxed);
-            self.extension = atomic_ext.load(Ordering::Relaxed);
-            
+            let result = self.extension.compare_exchange(snapshot, next, Ordering::Acquire, Ordering::Relaxed);
+
             snapshot != result.unwrap()
         } {}
 
@@ -302,7 +300,7 @@ impl<'a> Default for CorrelationVector {
     fn default() -> CorrelationVector {
         CorrelationVector {
             base_vector: String::from(""),
-            extension: 0,
+            extension: AtomicUsize::new(0),
             immutable: false,
             version: CorrelationVectorVersion::V1,
         }
