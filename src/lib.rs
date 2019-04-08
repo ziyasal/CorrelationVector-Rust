@@ -267,8 +267,7 @@ impl CorrelationVector {
         let mut snapshot: usize = 0;
         let mut next: usize = 0;
 
-        println!("ENTER: {}", self.extension.load(Ordering::Relaxed));
-
+        // fancy Rust style do while
         while {
             //work
             snapshot = self.extension.load(Ordering::Relaxed);
