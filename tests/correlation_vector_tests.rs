@@ -19,9 +19,11 @@ fn it_validates_cv_increment() {
     let mut cv = CorrelationVector::new(String::from("PmvzQKgYek6Sdk/T5sWaqw"),
                                         0, CorrelationVectorVersion::V1, false);
 
-    cv.increment();
-    let x = *cv.value();
-    let a: Vec<&str> = x.split('.').collect();
+    for c in 1..10 {
+        cv.increment();
+        let increased_value = *cv.value();
+        let vector_parts: Vec<&str> = increased_value.split('.').collect();
 
-    assert_eq!("1", a[1]);
+        assert_eq!(c.to_string(), vector_parts[1]);
+    }
 }
