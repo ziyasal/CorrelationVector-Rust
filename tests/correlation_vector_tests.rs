@@ -1,5 +1,5 @@
 use correlation_vector;
-use correlation_vector::CorrelationVector;
+use correlation_vector::vector_impl::CorrelationVector;
 use correlation_vector::enums::CorrelationVectorVersion;
 
 #[test]
